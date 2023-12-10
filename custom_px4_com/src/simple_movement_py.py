@@ -4,9 +4,11 @@ PI = 3.141592
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleStatus
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleGlobalPosition, VehicleStatus, VehicleAttitude
 from std_msgs.msg import Bool
-
+from geometry_msgs.msg import TransformStamped
+from tf2_ros import TransformBroadcaster
+from message_filters import Subscriber, ApproximateTimeSynchronizer
 class SimpleControl(Node):
 	def __init__(self) -> None:
 		super().__init__('simple_movement')
@@ -20,25 +22,29 @@ class SimpleControl(Node):
 
 	# Create publishers
 		self.offboard_control_mode_publisher = self.create_publisher(
-            OffboardControlMode, '/px4_1/fmu/in/offboard_control_mode', qos_profile)
+            OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
 		self.trajectory_setpoint_publisher = self.create_publisher(
-            TrajectorySetpoint, '/px4_1/fmu/in/trajectory_setpoint', qos_profile)
+            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', qos_profile)
 		self.vehicle_command_publisher = self.create_publisher(
-            VehicleCommand, '/px4_1/fmu/in/vehicle_command', qos_profile)
+            VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
 		self.multi_disarm_publisher = self.create_publisher(Bool, '/multi/out', qos_profile)
 	
-        # Create subscribers
+	# Create subscribers
 		self.vehicle_local_position_subscriber = self.create_subscription(
-            VehicleLocalPosition, '/px4_1/fmu/out/vehicle_local_position', self.vehicle_local_position_callback, qos_profile)
+            VehicleLocalPosition, '/fmu/out/vehicle_local_position', self.vehicle_local_position_callback, qos_profile)
+		self.vehicle_global_position_subscriber = self.create_subscription(
+			VehicleGlobalPosition, '/fmu/out/vehicle_global_position', self.vehicle_global_position_callback, qos_profile)
 		self.vehicle_status_subscriber = self.create_subscription(
-            VehicleStatus, '/px4_1/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
+            VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
 
+	# Variable Setup
 		self.setup = False
 		self.position = [0,0,0]
 		self.rtl = False
 		self.offboard_setpoint_counter = 0
 		self.vehicle_local_position = VehicleLocalPosition()
 		self.vehicle_status = VehicleStatus()
+		self.vehicle_global_position = VehicleGlobalPosition()
 
         # Create a timer to publish control commands
 		self.timer = self.create_timer(0.1, self.timer_callback)
@@ -53,6 +59,9 @@ class SimpleControl(Node):
 		self.vehicle_local_position = vehicle_local_position
 		x = self.vehicle_local_position.x - self.position[0]
 		y = self.vehicle_local_position.y - self.position[1]
+
+		# self.get_logger().info(f"Current Velocity [{self.vehicle_local_position.vx :.2f}, {self.vehicle_local_position.vy:.2f}]")
+		
 		# self.get_logger().info(f"Current position {[x, y]}")
 		if (x**2 + y**2 < 4.0) & (self.setup==True):
 			if (self.rtl):
@@ -60,6 +69,9 @@ class SimpleControl(Node):
 				raise SystemExit
 			self.setup = False
 
+	def vehicle_global_position_callback(self, vehicle_global_position):
+		self.vehicle_global_position = vehicle_global_position
+		
 	def vehicle_status_callback(self, vehicle_status):
 		"""Callback function for vehicle_status topic subscriber."""
 		self.vehicle_status = vehicle_status
@@ -106,7 +118,7 @@ class SimpleControl(Node):
 		msg.position = [x, y, z]
 		msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
 		self.trajectory_setpoint_publisher.publish(msg)
-		self.get_logger().info(f"Publishing position setpoints {[x, y, z]}")
+		# self.get_logger().info(f"Publishing position setpoints {[x, y, z]}")
 
 	def publish_vehicle_command(self, command, **params) -> None:
 		"""Publish a vehicle command."""
@@ -119,7 +131,7 @@ class SimpleControl(Node):
 		msg.param5 = params.get("param5", 0.0)
 		msg.param6 = params.get("param6", 0.0)
 		msg.param7 = params.get("param7", 0.0)
-		msg.target_system = 2
+		msg.target_system = 1
 		msg.target_component = 1
 		msg.source_system = 1
 		msg.source_component = 1

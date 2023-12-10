@@ -51,6 +51,8 @@ install(TARGETS simple_movement DESTINATION lib/${PROJECT_NAME})
 ament_python_install_package(src)
 install(PROGRAMS src/simple_movement_py.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS src/rover2_movement.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS src/rover1_vel_movement.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS src/rover1_tf_broad.py DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##

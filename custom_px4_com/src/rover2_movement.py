@@ -5,7 +5,7 @@ import rclpy
 import math
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleStatus
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleGlobalPosition, VehicleStatus
 from std_msgs.msg import Bool
 
 class SimpleControl(Node):
@@ -30,7 +30,9 @@ class SimpleControl(Node):
 	# Create subscribers (Target)
 		self.vehicle_local_position_subscriber = self.create_subscription(
             VehicleLocalPosition, '/px4_1/fmu/out/vehicle_local_position', self.target_local_position_callback, qos_profile)
-
+		self.vehicle_global_position_subscriber = self.create_subscription(
+			VehicleGlobalPosition, '/px4_1/fmu/out/vehicle_global_position', self.target_global_position_callback, qos_profile)
+		
     # Create subscribers (Main)
 		self.vehicle_local_position_subscriber = self.create_subscription(
             VehicleLocalPosition, '/px4_2/fmu/out/vehicle_local_position', self.vehicle_local_position_callback, qos_profile)
@@ -45,6 +47,7 @@ class SimpleControl(Node):
 		self.vehicle_local_position = VehicleLocalPosition()
 		self.target_local_position = VehicleLocalPosition()
 		self.vehicle_status = VehicleStatus()
+		self.target_global_position = VehicleGlobalPosition()
 
         # Create a timer to publish control commands
 		self.timer = self.create_timer(0.1, self.timer_callback)
@@ -52,6 +55,9 @@ class SimpleControl(Node):
 	def target_local_position_callback(self, vehicle_local_position):
 		"""Callback function for target_local_position topic subscriber."""
 		self.target_local_position = vehicle_local_position
+
+	def target_global_position_callback(self, vehicle_global_position):
+		self.target_global_position = vehicle_global_position
 
 	def vehicle_local_position_callback(self, vehicle_local_position):
 		"""Callback function for vehicle_local_position topic subscriber."""
@@ -87,6 +93,11 @@ class SimpleControl(Node):
 		"""Switch to land mode."""
 		self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND)
 		self.get_logger().info("Switching to land mode")
+
+	def set_home(self):
+		self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_SET_HOME, param1=0.0, param5=self.target_global_position.lat, 
+			       param6=self.target_global_position.lon, param7=self.target_global_position.alt)
+		self.get_logger().info("Set Home Complete")
 
 	def publish_offboard_control_heartbeat_signal(self):
 		"""Publish the offboard control mode."""
@@ -137,12 +148,14 @@ class SimpleControl(Node):
 		self.distance = math.sqrt((t_x-b_x)**2 + (t_y-b_y)**2)
 
 		if self.offboard_setpoint_counter == 10:
+			self.set_home()
 			self.engage_offboard_mode()
 			self.arm()
 
 		if ((self.vehicle_status.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD) &
-		(self.distance > 5.0)):
+		(self.distance > 10.0)):
 			self.publish_position_setpoint(t_x, t_y, 0.0)
+			self.get_logger().info(f"Distance : {self.distance}")
 
 		elif ((self.distance <= 5.0) & (self.rtl)):
 			self.disarm()

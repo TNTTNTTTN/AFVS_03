@@ -7,3 +7,9 @@
 [submodule "px4_ros_com"]
 	path = px4_ros_com
 	url = https://github.com/PX4/px4_ros_com.git
+[submodule "YDLidar-SDK"]
+	path = YDLidar-SDK
+	url = https://github.com/YDLIDAR/YDLidar-SDK.git
+[submodule "ydlidar_ros2_driver"]
+	path = ydlidar_ros2_driver
+	url = https://github.com/YDLIDAR/ydlidar_ros2_driver.git
