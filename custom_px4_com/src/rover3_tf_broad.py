@@ -33,8 +33,8 @@ class TFBroadcaster(Node):
 
 	# Time Synchronizer & Broadcaster
 		self.vehicle_odom_publisher = self.create_publisher(Odometry, '/odom', qos_profile)
-		self.sub1 = Subscriber(self, VehicleLocalPosition, "/px4_1/fmu/out/vehicle_local_position", qos_profile=qos_profile)
-		self.sub2 = Subscriber(self, VehicleOdometry, "/px4_1/fmu/out/vehicle_odometry", qos_profile=qos_profile)
+		self.sub1 = Subscriber(self, VehicleLocalPosition, "/px4_3/fmu/out/vehicle_local_position", qos_profile=qos_profile)
+		self.sub2 = Subscriber(self, VehicleOdometry, "/px4_3/fmu/out/vehicle_odometry", qos_profile=qos_profile)
 		sync_ = ApproximateTimeSynchronizer([self.sub1, self.sub2], 1, 1, allow_headerless=True)
 		sync_.registerCallback(self.vehicle_tf2_broadcaster)
 		# self.vehicle_init_goal_subscriber = self.create_subscription(PoseWithCovarianceStamped, '/px4_1/initialpose', self.vehicle_init_goal_callback, qos_profile)
